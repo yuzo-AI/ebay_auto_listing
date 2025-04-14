@@ -1,0 +1,69 @@
+# Python関連
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 環境設定関連
+.env
+.env.*
+.venv
+venv/
+ENV/
+
+# APIキー・認証情報関連
+*.pem
+*.key
+*.cert
+*.json
+!requirements.json
+!package.json
+auto-sales-input-*.json
+*credential*.json
+*token*.json
+*secret*.json
+*key*.json
+
+# ログ関連
+*.log
+logs/
+log/
+
+# エディタ関連
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS関連
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# プロジェクト固有のファイル
+ebay_test.log
+ebay_listing.log
+
+# テスト関連
+*test_data* 
