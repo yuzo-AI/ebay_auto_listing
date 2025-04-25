@@ -1,20 +1,52 @@
 import os
+import logging
 from dotenv import load_dotenv
 
 # .envファイルから環境変数を読み込む
 load_dotenv()
 
-# Google Sheetsの設定
-SPREADSHEET_ID = "15hBsS4XTVit5Su_a0BnIzgdfvQF0aNaCg6pjPnun8pM"
-SHEET_NAME = "test"
-CELL_RANGE = "A2"
-GOOGLE_CREDENTIALS_FILE = "auto-sales-input-2b5d0118f65a.json"
+logger = logging.getLogger("ebay_listing.config")
 
-# eBay APIの設定
-EBAY_APP_ID = os.getenv("EBAY_APP_ID")
-EBAY_DEV_ID = os.getenv("EBAY_DEV_ID")
-EBAY_CERT_ID = os.getenv("EBAY_CERT_ID")
-EBAY_AUTH_TOKEN = os.getenv("EBAY_AUTH_TOKEN")
+DEFAULT_ENVIRONMENT = "sandbox"  # デフォルトはサンドボックス環境
+
+# Google Sheetsの設定
+SPREADSHEET_ID = os.getenv("GOOGLE_SHEET_ID", "15hBsS4XTVit5Su_a0BnIzgdfvQF0aNaCg6pjPnun8pM")
+SHEET_NAME = os.getenv("GOOGLE_SHEET_NAME", "test")
+CELL_RANGE = "A2"
+GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_SHEETS_CREDENTIALS_PATH", "auto-sales-input-2b5d0118f65a.json")
+
+def get_env_var(var_name, env_type=None):
+    """
+    指定された環境タイプに基づいて環境変数を取得する
+    
+    Args:
+        var_name (str): 環境変数名（"APP_ID", "DEV_ID", "CERT_ID", "AUTH_TOKEN"など）
+        env_type (str, optional): 環境タイプ。"sandbox"または"production"
+                                 Noneの場合はDEFAULT_ENVIRONMENTを使用
+    
+    Returns:
+        str: 環境変数の値
+    """
+    if env_type is None:
+        env_type = os.getenv("EBAY_ENVIRONMENT", DEFAULT_ENVIRONMENT)
+        
+    prefix = f"EBAY_{env_type.upper()}_"
+    return os.getenv(f"{prefix}{var_name}")
+
+def get_current_environment():
+    """
+    現在の環境タイプを取得する
+    
+    Returns:
+        str: 環境タイプ（"sandbox"または"production"）
+    """
+    return os.getenv("EBAY_ENVIRONMENT", DEFAULT_ENVIRONMENT)
+
+# eBay APIの設定（後方互換性のため）
+EBAY_APP_ID = get_env_var("APP_ID")
+EBAY_DEV_ID = get_env_var("DEV_ID")
+EBAY_CERT_ID = get_env_var("CERT_ID")
+EBAY_AUTH_TOKEN = get_env_var("AUTH_TOKEN")
 
 # eBay出品の基本情報（ダミー値）
 EBAY_LISTING_DEFAULTS = {
@@ -37,4 +69,4 @@ EBAY_LISTING_DEFAULTS = {
         {"Name": "Type", "Value": "Action Figure"},
         {"Name": "Character", "Value": "Alya"}
     ]
-} 
+}  
