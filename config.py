@@ -11,7 +11,7 @@ DEFAULT_ENVIRONMENT = "sandbox"  # デフォルトはサンドボックス環境
 
 # Google Sheetsの設定
 SPREADSHEET_ID = os.getenv("GOOGLE_SHEET_ID", "15hBsS4XTVit5Su_a0BnIzgdfvQF0aNaCg6pjPnun8pM")
-SHEET_NAME = os.getenv("GOOGLE_SHEET_NAME", "test")
+SHEET_NAME = os.getenv("GOOGLE_SHEET_NAME", "sales-tast-page")
 CELL_RANGE = "A2"
 GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_SHEETS_CREDENTIALS_PATH", "auto-sales-input-2b5d0118f65a.json")
 
@@ -69,4 +69,4 @@ EBAY_LISTING_DEFAULTS = {
         {"Name": "Type", "Value": "Action Figure"},
         {"Name": "Character", "Value": "Alya"}
     ]
-}  
+}    
