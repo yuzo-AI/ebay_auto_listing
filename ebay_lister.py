@@ -1,5 +1,6 @@
 # ebay_lister.py
 
+import os
 import time
 import logging
 import json
@@ -14,8 +15,10 @@ from config import (
     EBAY_DEV_ID, 
     EBAY_CERT_ID, 
     EBAY_AUTH_TOKEN, 
-    EBAY_LISTING_DEFAULTS
+    EBAY_LISTING_DEFAULTS,
+    get_env_var
 )
+from ebay_env import EbayEnvironment
 
 # ロガーの取得
 logger = logging.getLogger("ebay_listing.ebay_api")
@@ -59,12 +62,13 @@ def _extract_error_message(errors) -> str:
         return str(errors)
 
 # --- 新しい関数: カテゴリID提案 ---
-def get_suggested_category(title: str) -> Optional[str]:
+def get_suggested_category(title: str, environment: Optional[EbayEnvironment] = None) -> Optional[str]:
     """
     商品タイトルに基づいて、eBayにカテゴリIDを提案させる関数
 
     Args:
         title (str): 商品タイトル
+        environment (EbayEnvironment, optional): eBay環境オブジェクト。Noneの場合は新しく作成。
 
     Returns:
         Optional[str]: 提案されたカテゴリIDのうち最初のもの。失敗した場合はNone。
@@ -74,15 +78,14 @@ def get_suggested_category(title: str) -> Optional[str]:
         return None
 
     try:
-        logger.info(f"タイトル '{title}' に基づいてカテゴリIDを提案させています...")
-        api = Trading(
-            domain='api.sandbox.ebay.com', # 本番環境の場合は 'api.ebay.com'
-            appid=EBAY_APP_ID,
-            devid=EBAY_DEV_ID,
-            certid=EBAY_CERT_ID,
-            token=EBAY_AUTH_TOKEN,
-            config_file=None,
-        )
+        env = environment or EbayEnvironment()
+        api_config = env.get_api_config()
+        
+        env_name = "本番" if env.is_production() else "サンドボックス"
+        logger.info(f"タイトル '{title}' に基づいてeBay {env_name} 環境でカテゴリIDを提案させています...")
+        
+        # APIに接続
+        api = Trading(**api_config)
         response = api.execute('GetSuggestedCategories', {'Query': title})
         response_dict = response.dict()
 
@@ -136,19 +139,89 @@ def get_suggested_category(title: str) -> Optional[str]:
         logger.exception(f"カテゴリ提案取得中に予期しないエラーが発生しました。", exc_info=True)
         return None
 
+def upload_image_to_ebay(image_path: str, environment: Optional[EbayEnvironment] = None) -> Optional[str]:
+    """
+    eBayに画像をアップロードする関数
+    
+    Args:
+        image_path (str): アップロードする画像のパス
+        environment (EbayEnvironment, optional): eBay環境オブジェクト。Noneの場合は新しく作成。
+        
+    Returns:
+        str: アップロードされた画像のURL。失敗した場合はNone。
+    """
+    logger.info(f"画像 '{image_path}' をeBayにアップロードしています...")
+    
+    if not validate_credentials():
+        logger.error("API認証情報が無効です")
+        return None
+
+    try:
+        if not os.path.exists(image_path):
+            logger.error(f"画像ファイルが見つかりません: {image_path}")
+            return None
+            
+        env = environment or EbayEnvironment()
+        api_config = env.get_api_config()
+        
+        api = Trading(**api_config)
+        
+        logger.info(f"画像 '{image_path}' をアップロードしています...")
+        
+        with open(image_path, 'rb') as f:
+            image_data = f.read()
+        
+        request_data = {
+            'PictureName': os.path.basename(image_path),
+            'PictureData': image_data
+        }
+        
+        response = api.execute('UploadSiteHostedPictures', request_data)
+        
+        # 成功した場合
+        response_dict = response.dict()
+        
+        site_hosted_picture_details = response_dict.get('SiteHostedPictureDetails', {})
+        full_url = site_hosted_picture_details.get('FullURL')
+        
+        if full_url:
+            logger.info(f"画像のアップロードに成功しました。URL: {full_url}")
+            return full_url
+        else:
+            logger.error("画像URLが見つかりません")
+            return None
+            
+    except ConnectionError as e:
+        # APIエラーの場合
+        logger.error(f"eBay API接続エラー: {str(e)}")
+        try:
+            error_response = e.response.dict()
+            errors = error_response.get('Errors', [])
+            error_message = _extract_error_message(errors)
+            logger.error(f"APIエラー詳細: {error_message}")
+        except Exception:
+            pass
+        return None
+    except Exception as e:
+        # その他のエラー
+        logger.error(f"画像アップロード中に予期しないエラーが発生しました: {str(e)}")
+        return None
+
 # --- 既存関数の修正: list_item_on_ebay ---
 def list_item_on_ebay(title: str,
                       category_id: Optional[str] = None,
                       item_specifics: List[Dict[str, str]] = None,
-                      picture_urls: List[str] = None) -> Tuple[bool, str]:
+                      picture_urls: List[str] = None,
+                      environment: Optional[EbayEnvironment] = None) -> Tuple[bool, str]:
     """
-    eBay Sandboxに商品を出品する関数 (カテゴリIDを指定可能に)
+    eBayに商品を出品する関数
     
     Args:
         title (str): 出品するアイテムのタイトル
         category_id (Optional[str], optional): 使用するカテゴリID。Noneの場合はconfigのデフォルト値を使用。
         item_specifics (List[Dict[str, str]], optional): カスタムのItem Specifics。Noneの場合はデフォルト値を使用。
         picture_urls (List[str], optional): 商品画像のURL。Noneの場合はデフォルト値を使用。
+        environment (EbayEnvironment, optional): eBay環境オブジェクト。Noneの場合は新しく作成。
         
     Returns:
         Tuple[bool, str]: (成功したかどうかのブール値, アイテムIDまたはエラーメッセージ)
@@ -157,16 +230,14 @@ def list_item_on_ebay(title: str,
         return False, "API認証情報が無効です"
 
     try:
+        env = environment or EbayEnvironment()
+        api_config = env.get_api_config()
+        
+        env_name = "本番" if env.is_production() else "サンドボックス"
+        logger.debug(f"eBay {env_name} 環境のTrading APIに接続しています...")
+        
         # APIに接続
-        logger.debug("eBay Trading APIに接続しています...")
-        api = Trading(
-            domain='api.sandbox.ebay.com',
-            appid=EBAY_APP_ID,
-            devid=EBAY_DEV_ID,
-            certid=EBAY_CERT_ID,
-            token=EBAY_AUTH_TOKEN,
-            config_file=None
-        )
+        api = Trading(**api_config)
         
         # カテゴリIDの決定
         target_category_id = category_id # 引数で渡されたIDを優先
