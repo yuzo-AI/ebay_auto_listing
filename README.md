@@ -77,7 +77,7 @@ EBAY_ENVIRONMENT=sandbox
 ```
 GOOGLE_SHEETS_CREDENTIALS_PATH=path/to/your/credentials.json
 GOOGLE_SHEET_ID=your_spreadsheet_id
-GOOGLE_SHEET_NAME=your_sheet_name
+GOOGLE_SHEET_NAME=sales-tast-page
 ```
 
 6. 対象のスプレッドシートをサービスアカウントと共有
